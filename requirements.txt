@@ -1,0 +1,11 @@
+flask
+flask-sqlalchemy
+torch
+transformers
+# these requirements depend on the model
+# accelerate 
+# sentencepiece 
+# bitsandbytes 
+# einops 
+# tokenizers
+# optimum
