@@ -1,10 +1,21 @@
 const chatArea = document.getElementById('chatArea');
 const userInput = document.getElementById('userInput');
 const sendButton = document.getElementById('sendButton');
-const modelList = document.getElementById('modelList');
+const sessionList = document.getElementById('sessionList');
 const darkModeToggle = document.getElementById('darkModeToggle');
 
-const currentModel = 'default_model'; // You can change this to your default model name
+let currentSession = null;
+
+// Dark mode functionality
+function enableDarkMode() {
+    document.documentElement.classList.add('dark');
+    localStorage.setItem('darkMode', 'enabled');
+}
+
+function disableDarkMode() {
+    document.documentElement.classList.remove('dark');
+    localStorage.setItem('darkMode', 'disabled');
+}
 
 // Check for saved dark mode preference or system preference
 if (
@@ -12,11 +23,9 @@ if (
     (localStorage.getItem('darkMode') === null &&
         window.matchMedia('(prefers-color-scheme: dark)').matches)
 ) {
-    document.documentElement.classList.add('dark');
-    localStorage.setItem('darkMode', 'enabled');
+    enableDarkMode();
 } else {
-    document.documentElement.classList.remove('dark');
-    localStorage.setItem('darkMode', 'disabled');
+    disableDarkMode();
 }
 
 // Dark mode toggle
@@ -28,8 +37,8 @@ darkModeToggle.addEventListener('click', () => {
     }
 });
 
-function loadChatHistory() {
-    fetch(`/api/get_chat_history?model=${currentModel}`)
+function loadChatHistory(sessionId) {
+    fetch(`/api/get_chat_history?session_id=${sessionId}`)
         .then((response) => response.json())
         .then((messages) => {
             chatArea.innerHTML = '';
@@ -57,7 +66,7 @@ function appendMessage(content, sender, timestamp) {
         } rounded-lg p-3">
             <div class="flex justify-between items-center mb-2 min-w-60">
                 <span class="font-bold">${
-                    sender === 'user' ? 'You' : currentModel
+                    sender === 'user' ? 'You' : 'Assistant'
                 }</span>
                 <span class="text-xs text-gray-500 dark:text-gray-400">${date.toLocaleString()}</span>
             </div>
@@ -70,7 +79,7 @@ function appendMessage(content, sender, timestamp) {
 
 function sendMessage() {
     const message = userInput.value.trim();
-    if (message) {
+    if (message && currentSession) {
         fetch('/api/send_message', {
             method: 'POST',
             headers: {
@@ -78,17 +87,16 @@ function sendMessage() {
             },
             body: JSON.stringify({
                 message: message,
-                model: currentModel,
+                session_id: currentSession,
             }),
         })
             .then((response) => response.json())
             .then((data) => {
                 appendMessage(message, 'user', new Date().toISOString());
-                appendMessage(data.model_response, 'model', data.timestamp);
+                appendMessage(data.model_response, 'assistant', data.timestamp);
             });
     }
 
-    loadChatHistory();
     userInput.value = '';
 }
 
@@ -99,19 +107,83 @@ userInput.addEventListener('keypress', (e) => {
     }
 });
 
-function updateModelList() {
-    const models = [currentModel]; // You can make this dynamic if needed
-    modelList.innerHTML = '';
-    models.forEach((model) => {
-        const modelDiv = document.createElement('div');
-        modelDiv.className = 'mb-2';
-        modelDiv.innerHTML = `
-            <h3 class="font-bold text-gray-900 dark:text-white">${model}</h3>
-            <ul id="${model}-history" class="list-disc pl-4 text-gray-800 dark:text-gray-300"></ul>
-        `;
-        modelList.appendChild(modelDiv);
-    });
+function createChatSession() {
+    fetch('/api/create_chat_session', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            model: modelNameTag,
+        }),
+    })
+        .then((response) => response.json())
+        .then((data) => {
+            currentSession = data.id;
+            updateSessionList();
+            loadChatHistory(currentSession);
+        });
 }
 
-updateModelList();
-loadChatHistory();
+function updateSessionList() {
+    fetch('/api/get_all_sessions')
+        .then((response) => response.json())
+        .then((sessions) => {
+            sessionList.innerHTML = '';
+            const models = new Set(sessions.map((session) => session.model));
+
+            models.forEach((model) => {
+                const modelDiv = document.createElement('div');
+                modelDiv.className = 'mb-4';
+                modelDiv.innerHTML = `
+                    <h3 class="font-bold text-gray-900 dark:text-white flex justify-between items-center">
+                        ${model}
+                        ${
+                            model === modelNameTag
+                                ? `<button onclick="createChatSession()" class="text-blue-500 hover:text-blue-700">+</button>`
+                                : ''
+                        }
+                    </h3>
+                    <ul id="${model}-sessions" class="list-disc pl-4 text-gray-800 dark:text-gray-300"></ul>
+                `;
+                sessionList.appendChild(modelDiv);
+
+                const modelSessions = sessions.filter(
+                    (session) => session.model === model
+                );
+                const sessionUl = document.getElementById(`${model}-sessions`);
+
+                modelSessions.forEach((session) => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `
+                        <a href="#" onclick="selectSession('${
+                            session.id
+                        }')" class="hover:text-blue-500">
+                            ${new Date(session.created_at).toLocaleString()}
+                        </a>
+                    `;
+                    if (session.model !== modelNameTag) {
+                        li.classList.add('opacity-50');
+                    }
+                    sessionUl.appendChild(li);
+                });
+            });
+        });
+}
+
+function selectSession(sessionId) {
+    currentSession = sessionId;
+    loadChatHistory(sessionId);
+}
+
+function initializeApp() {
+    fetch(`/api/get_latest_session?model=${modelNameTag}`)
+        .then((response) => response.json())
+        .then((data) => {
+            currentSession = data.id;
+            updateSessionList();
+            loadChatHistory(currentSession);
+        });
+}
+
+initializeApp();

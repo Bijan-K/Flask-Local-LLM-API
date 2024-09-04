@@ -10,6 +10,7 @@
             tailwind.config = {
                 darkMode: 'class',
             };
+            const modelNameTag = '{{ model_name }}'; // This will be populated by Flask
         </script>
         <style>
             /* Webkit browsers like Chrome, Safari */
@@ -70,7 +71,7 @@
                         Toggle Dark Mode
                     </button>
                 </div>
-                <div id="modelList" class="flex-1 overflow-y-auto"></div>
+                <div id="sessionList" class="flex-1 overflow-y-auto"></div>
             </div>
             <div
                 class="flex-1 flex flex-col bg-white dark:bg-gray-800 rounded-lg shadow-md"

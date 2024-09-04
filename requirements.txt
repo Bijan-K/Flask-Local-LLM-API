@@ -1,7 +1,8 @@
 flask
 flask-sqlalchemy
-torch
-transformers
+python-dotenv
+# torch
+# transformers
 # these requirements depend on the model
 # accelerate 
 # sentencepiece 

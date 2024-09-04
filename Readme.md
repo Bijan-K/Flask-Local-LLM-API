@@ -11,12 +11,12 @@ source venv/bin/activate # Linux
 
 # Edit the LLM_model file to your needs
 # add your specific dependencies to requireements 
-# add the name of your model to line x of app.py
-# Revise your system prompt at line x of app.py
+# add the display name of your model and system prompt to the .env file. 
+# for example, 'PHI-3' for name tag and 'you are an assistant language model' for system prompt(without quotations).
 
 pip install -r requirements.txt
 
 python app.py
 ```
 
-
+I left the llm_model open ended because I thought some would like to use it with transformers and some may want to use an API. 
