@@ -53,6 +53,20 @@
             .dark * {
                 scrollbar-color: #4a5568 #2d3748;
             }
+
+            /* Fade-in animation */
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                }
+                to {
+                    opacity: 1;
+                }
+            }
+
+            .fade-in {
+                animation: fadeIn 0.5s ease-in-out;
+            }
         </style>
     </head>
     <body
@@ -78,16 +92,16 @@
             >
                 <div id="chatArea" class="flex-1 p-4 overflow-y-auto"></div>
                 <div class="p-4 border-t dark:border-gray-700">
-                    <div class="flex items-center">
-                        <input
-                            type="text"
+                    <div class="flex items-start">
+                        <textarea
                             id="userInput"
-                            class="flex-1 p-2 border rounded bg-white text-gray-900 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                            class="flex-1 p-2 border rounded bg-white text-gray-900 dark:bg-gray-700 dark:text-white dark:border-gray-600 resize-none"
                             placeholder="Type your message..."
-                        />
+                            rows="3"
+                        ></textarea>
                         <button
                             id="sendButton"
-                            class="ml-2 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors duration-200"
+                            class="ml-2 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Send
                         </button>

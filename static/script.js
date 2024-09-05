@@ -46,17 +46,18 @@ function loadChatHistory(sessionId) {
                 appendMessage(
                     message.content,
                     message.sender,
-                    message.timestamp
+                    message.timestamp,
+                    false
                 );
             });
         });
 }
 
-function appendMessage(content, sender, timestamp) {
+function appendMessage(content, sender, timestamp, animate = true) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `mb-4 ${
         sender === 'user' ? 'text-right' : 'text-left'
-    }`;
+    } ${animate ? 'fade-in' : ''}`;
     const date = new Date(timestamp);
     messageDiv.innerHTML = `
         <div class="inline-block max-w-3/4 ${
@@ -70,7 +71,7 @@ function appendMessage(content, sender, timestamp) {
                 }</span>
                 <span class="text-xs text-gray-500 dark:text-gray-400">${date.toLocaleString()}</span>
             </div>
-            <p>${content}</p>
+            <p style="white-space: pre-wrap;">${content}</p>
         </div>
     `;
     chatArea.appendChild(messageDiv);
@@ -92,6 +93,10 @@ function sendMessage() {
         })
             .then((response) => response.json())
             .then((data) => {
+                if (data.error) {
+                    console.error(data.error);
+                    return;
+                }
                 appendMessage(message, 'user', new Date().toISOString());
                 appendMessage(data.model_response, 'assistant', data.timestamp);
             });
@@ -101,8 +106,9 @@ function sendMessage() {
 }
 
 sendButton.addEventListener('click', sendMessage);
-userInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
+userInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
         sendMessage();
     }
 });
@@ -119,6 +125,10 @@ function createChatSession() {
     })
         .then((response) => response.json())
         .then((data) => {
+            if (data.error) {
+                console.error(data.error);
+                return;
+            }
             currentSession = data.id;
             updateSessionList();
             loadChatHistory(currentSession);
@@ -156,33 +166,48 @@ function updateSessionList() {
                 modelSessions.forEach((session) => {
                     const li = document.createElement('li');
                     li.innerHTML = `
-                        <a href="#" onclick="selectSession('${
-                            session.id
-                        }')" class="hover:text-blue-500">
+                        <a href="#" onclick="selectSession('${session.id}', '${
+                        session.model
+                    }')" class="hover:text-blue-500 ${
+                        session.model !== modelNameTag ? 'opacity-50' : ''
+                    }">
                             ${new Date(session.created_at).toLocaleString()}
                         </a>
                     `;
-                    if (session.model !== modelNameTag) {
-                        li.classList.add('opacity-50');
-                    }
                     sessionUl.appendChild(li);
                 });
             });
         });
 }
 
-function selectSession(sessionId) {
+function selectSession(sessionId, model) {
     currentSession = sessionId;
     loadChatHistory(sessionId);
+    updateSendButtonState(model);
+}
+
+function updateSendButtonState(model) {
+    if (model === modelNameTag) {
+        sendButton.disabled = false;
+        sendButton.classList.remove('opacity-50', 'cursor-not-allowed');
+    } else {
+        sendButton.disabled = true;
+        sendButton.classList.add('opacity-50', 'cursor-not-allowed');
+    }
 }
 
 function initializeApp() {
     fetch(`/api/get_latest_session?model=${modelNameTag}`)
         .then((response) => response.json())
         .then((data) => {
+            if (data.error) {
+                console.error(data.error);
+                return;
+            }
             currentSession = data.id;
             updateSessionList();
             loadChatHistory(currentSession);
+            updateSendButtonState(modelNameTag);
         });
 }
 

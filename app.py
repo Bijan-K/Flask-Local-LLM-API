@@ -14,6 +14,8 @@ app = Flask(__name__, static_url_path="/static")
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///chatbot.db"
 db = SQLAlchemy(app)
 
+print(MODEL_NAME_TAG)
+
 
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -56,7 +58,7 @@ def send_message():
     session_id = data["session_id"]
 
     session = ChatSession.query.get(session_id)
-    if not session:
+    if not session or session.model != MODEL_NAME_TAG:
         return jsonify({"error": "Invalid session"}), 400
 
     session.last_used = datetime.utcnow()
@@ -120,7 +122,9 @@ def get_all_sessions():
 
 @app.route("/api/create_chat_session", methods=["POST"])
 def create_chat_session():
-    model = request.json.get("model", MODEL_NAME_TAG)
+    model = request.json.get("model")
+    if model != MODEL_NAME_TAG:
+        return jsonify({"error": "Invalid model"}), 400
     new_session = ChatSession(id=str(uuid.uuid4()), model=model)
     db.session.add(new_session)
     db.session.commit()
@@ -137,6 +141,8 @@ def create_chat_session():
 @app.route("/api/get_latest_session", methods=["GET"])
 def get_latest_session():
     model = request.args.get("model", MODEL_NAME_TAG)
+    if model != MODEL_NAME_TAG:
+        return jsonify({"error": "Invalid model"}), 400
     session = get_or_create_latest_session(model)
     return jsonify(
         {
