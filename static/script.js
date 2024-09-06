@@ -6,7 +6,7 @@ const darkModeToggle = document.getElementById('darkModeToggle');
 
 let currentSession = null;
 
-// Dark mode functionality
+// Dark mode functionality (unchanged)
 function enableDarkMode() {
     document.documentElement.classList.add('dark');
     localStorage.setItem('darkMode', 'enabled');
@@ -17,7 +17,6 @@ function disableDarkMode() {
     localStorage.setItem('darkMode', 'disabled');
 }
 
-// Check for saved dark mode preference or system preference
 if (
     localStorage.getItem('darkMode') === 'enabled' ||
     (localStorage.getItem('darkMode') === null &&
@@ -28,7 +27,6 @@ if (
     disableDarkMode();
 }
 
-// Dark mode toggle
 darkModeToggle.addEventListener('click', () => {
     if (document.documentElement.classList.contains('dark')) {
         disableDarkMode();
@@ -47,18 +45,41 @@ function loadChatHistory(sessionId) {
                     message.content,
                     message.sender,
                     message.timestamp,
-                    false
+                    false,
+                    message.id
                 );
             });
         });
 }
 
-function appendMessage(content, sender, timestamp, animate = true) {
+function appendMessage(
+    content,
+    sender,
+    timestamp,
+    animate = true,
+    messageIndex
+) {
+    console.log(content);
+    console.log(sender);
+    console.log(messageIndex);
+
     const messageDiv = document.createElement('div');
     messageDiv.className = `mb-4 ${
         sender === 'user' ? 'text-right' : 'text-left'
     } ${animate ? 'fade-in' : ''}`;
+    messageDiv.dataset.messageIndex = messageIndex;
     const date = new Date(timestamp);
+
+    let userActions = '';
+    if (sender === 'user') {
+        userActions = `
+            <div class="mt-2">
+                <button onclick="editMessage(${messageIndex})" class="text-sm text-blue-500 hover:text-blue-700 mr-2">Edit</button>
+                <button onclick="deleteMessage(${messageIndex})" class="text-sm text-red-500 hover:text-red-700">Delete</button>
+            </div>
+        `;
+    }
+
     messageDiv.innerHTML = `
         <div class="inline-block max-w-3/4 ${
             sender === 'user'
@@ -72,6 +93,7 @@ function appendMessage(content, sender, timestamp, animate = true) {
                 <span class="text-xs text-gray-500 dark:text-gray-400">${date.toLocaleString()}</span>
             </div>
             <p style="white-space: pre-wrap;">${content}</p>
+            ${userActions}
         </div>
     `;
     chatArea.appendChild(messageDiv);
@@ -97,8 +119,21 @@ function sendMessage() {
                     console.error(data.error);
                     return;
                 }
-                appendMessage(message, 'user', new Date().toISOString());
-                appendMessage(data.model_response, 'assistant', data.timestamp);
+                console.log(data);
+                appendMessage(
+                    message,
+                    'user',
+                    new Date().toISOString(),
+                    true,
+                    data.user_msg_id
+                );
+                appendMessage(
+                    data.model_response,
+                    'assistant',
+                    data.timestamp,
+                    true,
+                    data.model_msg_id
+                );
             });
     }
 
@@ -112,6 +147,83 @@ userInput.addEventListener('keydown', (e) => {
         sendMessage();
     }
 });
+
+function editMessage(messageIndex) {
+    const messageDiv = document.querySelector(
+        `[data-message-index="${messageIndex}"]`
+    );
+    const messageContent = messageDiv.querySelector('p').textContent;
+
+    const editInput = document.createElement('textarea');
+    editInput.value = messageContent;
+    editInput.className = 'w-full p-2 border rounded';
+
+    const saveButton = document.createElement('button');
+    saveButton.textContent = 'Save';
+    saveButton.className =
+        'mt-2 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600';
+
+    saveButton.onclick = () => saveEditedMessage(messageIndex, editInput.value);
+
+    messageDiv.innerHTML = '';
+    messageDiv.appendChild(editInput);
+    messageDiv.appendChild(saveButton);
+}
+
+function saveEditedMessage(messageIndex, newContent) {
+    console.log(messageIndex);
+    console.log(newContent);
+    console.log(currentSession);
+
+    fetch('/api/edit_message', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            session_id: currentSession,
+            message_id: messageIndex,
+            new_content: newContent,
+        }),
+    })
+        .then((response) => response.json())
+        .then((data) => {
+            if (data.error) {
+                console.error(data.error);
+                return;
+            }
+            loadChatHistory(currentSession);
+        });
+}
+
+function deleteMessage(messageIndex) {
+    console.log(messageIndex);
+
+    if (
+        confirm(
+            'Are you sure you want to delete this message and all subsequent messages?'
+        )
+    ) {
+        fetch('/api/delete_message', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                session_id: currentSession,
+                message_id: messageIndex,
+            }),
+        })
+            .then((response) => response.json())
+            .then((data) => {
+                if (data.error) {
+                    console.error(data.error);
+                    return;
+                }
+                loadChatHistory(currentSession);
+            });
+    }
+}
 
 function createChatSession() {
     fetch('/api/create_chat_session', {
@@ -166,13 +278,30 @@ function updateSessionList() {
                 modelSessions.forEach((session) => {
                     const li = document.createElement('li');
                     li.innerHTML = `
-                        <a href="#" onclick="selectSession('${session.id}', '${
+                        <div class="flex justify-between items-center">
+                            <a href="#" onclick="selectSession('${
+                                session.id
+                            }', '${
                         session.model
                     }')" class="hover:text-blue-500 ${
                         session.model !== modelNameTag ? 'opacity-50' : ''
                     }">
-                            ${new Date(session.created_at).toLocaleString()}
-                        </a>
+                                <span class="session-name" data-session-id="${
+                                    session.id
+                                }">${
+                        session.name ||
+                        new Date(session.created_at).toLocaleString()
+                    }</span>
+                            </a>
+                            <div>
+                                <button onclick="editSessionName('${
+                                    session.id
+                                }')" class="text-sm text-blue-500 hover:text-blue-700 mr-2">Edit</button>
+                                <button onclick="deleteSession('${
+                                    session.id
+                                }')" class="text-sm text-red-500 hover:text-red-700">Delete</button>
+                            </div>
+                        </div>
                     `;
                     sessionUl.appendChild(li);
                 });
@@ -193,6 +322,81 @@ function updateSendButtonState(model) {
     } else {
         sendButton.disabled = true;
         sendButton.classList.add('opacity-50', 'cursor-not-allowed');
+    }
+}
+
+function editSessionName(sessionId) {
+    const nameSpan = document.querySelector(
+        `.session-name[data-session-id="${sessionId}"]`
+    );
+    const currentName = nameSpan.textContent;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentName;
+    input.className = 'border rounded px-2 py-1 text-sm';
+
+    input.onblur = () => saveSessionName(sessionId, input.value);
+    input.onkeydown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            input.blur();
+        }
+    };
+
+    nameSpan.innerHTML = '';
+    nameSpan.appendChild(input);
+    input.focus();
+}
+
+function saveSessionName(sessionId, newName) {
+    fetch('/api/edit_session_name', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            session_id: sessionId,
+            new_name: newName,
+        }),
+    })
+        .then((response) => response.json())
+        .then((data) => {
+            if (data.error) {
+                console.error(data.error);
+                return;
+            }
+            updateSessionList();
+        });
+}
+
+function deleteSession(sessionId) {
+    if (
+        confirm(
+            'Are you sure you want to delete this session and all its messages?'
+        )
+    ) {
+        fetch('/api/delete_session', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                session_id: sessionId,
+            }),
+        })
+            .then((response) => response.json())
+            .then((data) => {
+                if (data.error) {
+                    console.error(data.error);
+                    return;
+                }
+                if (currentSession === sessionId) {
+                    currentSession = null;
+                    chatArea.innerHTML = '';
+                }
+                updateSessionList();
+            });
     }
 }
 
