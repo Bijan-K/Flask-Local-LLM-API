@@ -59,6 +59,10 @@ function appendMessage(
     animate = true,
     messageIndex
 ) {
+    console.log(content);
+    console.log(sender);
+    console.log(messageIndex);
+
     const messageDiv = document.createElement('div');
     messageDiv.className = `mb-4 ${
         sender === 'user' ? 'text-right' : 'text-left'
@@ -69,34 +73,63 @@ function appendMessage(
     let userActions = '';
     if (sender === 'user') {
         userActions = `
-            <div class="mt-2">
-                <button onclick="editMessage(${messageIndex})" class="text-sm text-blue-500 hover:text-blue-700 mr-2">Edit</button>
-                <button onclick="deleteMessage(${messageIndex})" class="text-sm text-red-500 hover:text-red-700">Delete</button>
+            <div class="relative inline-block">
+                <button onclick="toggleOptionsMenu(${messageIndex})" class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 focus:outline-none p-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M16 12a2 2 0 0 1 2-2a2 2 0 0 1 2 2a2 2 0 0 1-2 2a2 2 0 0 1-2-2m-6 0a2 2 0 0 1 2-2a2 2 0 0 1 2 2a2 2 0 0 1-2 2a2 2 0 0 1-2-2m-6 0a2 2 0 0 1 2-2a2 2 0 0 1 2 2a2 2 0 0 1-2 2a2 2 0 0 1-2-2"/></svg>
+                </button>
+                <div id="options-menu-${messageIndex}" class="absolute right-0 hidden mt-2 w-40 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-lg z-10">
+                    <ul class="text-sm mt-2 text-gray-700 dark:text-gray-300">
+                        <li>
+                            <button onclick="editMessage(${messageIndex})" class="flex items-center px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 w-full">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M4 21q-.425 0-.712-.288T3 20v-2.425q0-.4.15-.763t.425-.637L16.2 3.575q.3-.275.663-.425t.762-.15t.775.15t.65.45L20.425 5q.3.275.437.65T21 6.4q0 .4-.138.763t-.437.662l-12.6 12.6q-.275.275-.638.425t-.762.15zM17.6 7.8L19 6.4L17.6 5l-1.4 1.4z"/></svg>
+                                <span class="ml-2">Edit</span>
+                            </button>
+                        </li>
+                        <li>
+                            <button onclick="deleteMessage(${messageIndex})" class="flex items-center px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 w-full">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M5 21V6H4V4h5V3h6v1h5v2h-1v15zm2-2h10V6H7zm2-2h2V8H9zm4 0h2V8h-2zM7 6v13z"/></svg>
+                                <span class="ml-2">Delete</span>
+                            </button>
+                        </li>
+                    </ul>
+                </div>
             </div>
         `;
     }
 
-    // Parse markdown content
-    const markdownContent = marked.parse(content);
-
     messageDiv.innerHTML = `
-        <div class="inline-block max-w-full md:max-w-3/4 ${
+        <div class="inline-block max-w-3/4 ${
             sender === 'user'
                 ? 'bg-blue-100 text-gray-900 dark:bg-blue-800 dark:text-white'
                 : 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-white'
-        } rounded-lg p-3">
+        } rounded-lg p-2">
             <div class="flex justify-between items-center mb-2 min-w-60">
                 <span class="font-bold">${
                     sender === 'user' ? 'You' : 'Assistant'
                 }</span>
                 <span class="text-xs text-gray-500 dark:text-gray-400">${date.toLocaleString()}</span>
             </div>
-            <p style="white-space: pre-wrap;" class="markdown">${markdownContent}</p>
+            <p style="white-space: pre-wrap;">${content}</p>
             ${userActions}
         </div>
     `;
     chatArea.appendChild(messageDiv);
     chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+function toggleOptionsMenu(messageIndex) {
+    const menu = document.getElementById(`options-menu-${messageIndex}`);
+    const isHidden = menu.classList.contains('hidden');
+    // Close all other options menus first
+    document
+        .querySelectorAll('.options-menu')
+        .forEach((el) => el.classList.add('hidden'));
+    // Toggle the current menu
+    if (isHidden) {
+        menu.classList.remove('hidden');
+    } else {
+        menu.classList.add('hidden');
+    }
 }
 
 function sendMessage() {
