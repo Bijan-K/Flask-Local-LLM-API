@@ -22,7 +22,7 @@ python run.py
 
 I left the llm_model open ended to accommodate prototyping needs.
 
-![image](/Readme_screenshot.png)
+![image](/Screenshot.png)
 
 #### Important warning
 since I am using a .env file for getting the label name of model and the system prompt, an important problem emerges as that you may sometimes need to restart the terminal after changing the .env file... which is less than ideal. 
