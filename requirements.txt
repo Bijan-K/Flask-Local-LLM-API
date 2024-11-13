@@ -1,9 +1,10 @@
 flask
 flask-sqlalchemy
 python-dotenv
+uuid
+### these requirements depend on the model
 # torch
 # transformers
-### these requirements depend on the model
 # accelerate 
 # sentencepiece 
 # bitsandbytes 
