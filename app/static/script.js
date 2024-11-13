@@ -59,10 +59,6 @@ function appendMessage(
     animate = true,
     messageIndex
 ) {
-    console.log(content);
-    console.log(sender);
-    console.log(messageIndex);
-
     const messageDiv = document.createElement('div');
     messageDiv.className = `mb-4 ${
         sender === 'user' ? 'text-right' : 'text-left'
@@ -80,8 +76,11 @@ function appendMessage(
         `;
     }
 
+    // Parse markdown content
+    const markdownContent = marked.parse(content);
+
     messageDiv.innerHTML = `
-        <div class="inline-block max-w-3/4 ${
+        <div class="inline-block max-w-full md:max-w-3/4 ${
             sender === 'user'
                 ? 'bg-blue-100 text-gray-900 dark:bg-blue-800 dark:text-white'
                 : 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-white'
@@ -92,7 +91,7 @@ function appendMessage(
                 }</span>
                 <span class="text-xs text-gray-500 dark:text-gray-400">${date.toLocaleString()}</span>
             </div>
-            <p style="white-space: pre-wrap;">${content}</p>
+            <p style="white-space: pre-wrap;" class="markdown">${markdownContent}</p>
             ${userActions}
         </div>
     `;
@@ -119,7 +118,6 @@ function sendMessage() {
                     console.error(data.error);
                     return;
                 }
-                console.log(data);
                 appendMessage(
                     message,
                     'user',
@@ -171,10 +169,6 @@ function editMessage(messageIndex) {
 }
 
 function saveEditedMessage(messageIndex, newContent) {
-    console.log(messageIndex);
-    console.log(newContent);
-    console.log(currentSession);
-
     fetch('/api/edit_message', {
         method: 'POST',
         headers: {
@@ -197,8 +191,6 @@ function saveEditedMessage(messageIndex, newContent) {
 }
 
 function deleteMessage(messageIndex) {
-    console.log(messageIndex);
-
     if (
         confirm(
             'Are you sure you want to delete this message and all subsequent messages?'
