@@ -59,10 +59,6 @@ function appendMessage(
     animate = true,
     messageIndex
 ) {
-    console.log(content);
-    console.log(sender);
-    console.log(messageIndex);
-
     const messageDiv = document.createElement('div');
     messageDiv.className = `mb-4 ${
         sender === 'user' ? 'text-right' : 'text-left'
@@ -109,7 +105,7 @@ function appendMessage(
                 }</span>
                 <span class="text-xs text-gray-500 dark:text-gray-400">${date.toLocaleString()}</span>
             </div>
-            <p style="white-space: pre-wrap;">${content}</p>
+            <p class="text-left ml-1" style="white-space: pre-wrap;">${content}</p>
             ${userActions}
         </div>
     `;
