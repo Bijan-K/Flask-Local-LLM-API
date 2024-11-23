@@ -7,6 +7,9 @@ from datetime import datetime
 import os
 import uuid
 
+from functools import wraps
+import asyncio
+
 bp = Blueprint("routes", __name__)
 
 # Load environment variables for model configuration
@@ -19,8 +22,17 @@ def index():
     return render_template("index.html", model_name=MODEL_NAME_TAG)
 
 
+def async_route(f):
+    @wraps(f)
+    def wrapped(*args, **kwargs):
+        return asyncio.run(f(*args, **kwargs))
+
+    return wrapped
+
+
 @bp.route("/api/send_message", methods=["POST"])
-def send_message():
+@async_route
+async def send_message():
     data = request.json
     user_message = data["message"]
     session_id = data["session_id"]
@@ -29,12 +41,10 @@ def send_message():
     if not session or session.model != MODEL_NAME_TAG:
         return jsonify({"error": "Invalid session"}), 400
 
-    # Update last used timestamp for the session
     session.last_used = datetime.utcnow()
     user_msg = Message(content=user_message, sender="user", session_id=session_id)
     db.session.add(user_msg)
 
-    # Get context messages
     messages = (
         Message.query.filter_by(session_id=session_id).order_by(Message.timestamp).all()
     )
@@ -43,8 +53,8 @@ def send_message():
         for msg in messages
     ]
 
-    # Generate response from the model
-    model_response = LLM_model.get_response(context, session.model)
+    model_response = await LLM_model.get_response(context, session.model)
+
     model_msg = Message(
         content=model_response, sender="assistant", session_id=session_id
     )
@@ -159,7 +169,8 @@ def delete_message():
 
 
 @bp.route("/api/edit_message", methods=["POST"])
-def edit_message():
+@async_route
+async def edit_message():
     data = request.json
     message_id = data["message_id"]
     new_content = data["new_content"]
@@ -187,7 +198,8 @@ def edit_message():
         {"user" if msg.sender == "user" else "assistant": msg.content}
         for msg in messages
     ]
-    model_response = LLM_model.get_response(context, MODEL_NAME_TAG)
+
+    model_response = await LLM_model.get_response(context, MODEL_NAME_TAG)
 
     model_msg = Message(
         content=model_response, sender="assistant", session_id=session_id

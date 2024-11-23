@@ -2,6 +2,7 @@ flask
 flask-sqlalchemy
 python-dotenv
 uuid
+hypercorn
 ### these requirements depend on the model
 # torch
 # transformers
