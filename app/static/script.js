@@ -131,6 +131,40 @@ function toggleOptionsMenu(messageIndex) {
 function sendMessage() {
     const message = userInput.value.trim();
     if (message && currentSession) {
+        // Append a placeholder for the user's message
+        const userPlaceholderDiv = document.createElement('div');
+        userPlaceholderDiv.className = 'mb-4 text-right fade-in';
+        userPlaceholderDiv.innerHTML = `
+            <div class="inline-block max-w-3/4 bg-blue-100 text-gray-900 dark:bg-blue-800 dark:text-white rounded-lg p-2">
+                <div class="flex justify-between items-center mb-2 min-w-60">
+                    <span class="font-bold">You</span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">${new Date().toLocaleString()}</span>
+                </div>
+                <p class="text-left ml-1" style="white-space: pre-wrap;">${message}</p>
+            </div>
+        `;
+        chatArea.appendChild(userPlaceholderDiv);
+
+        // Append a loading indicator for the assistant's response
+        const assistantPlaceholderDiv = document.createElement('div');
+        assistantPlaceholderDiv.className = 'mb-4 text-left fade-in';
+        assistantPlaceholderDiv.innerHTML = `
+            <div class="inline-block max-w-3/4 bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-white rounded-lg p-2">
+                <div class="flex justify-between items-center mb-2 min-w-60">
+                    <span class="font-bold">Assistant</span>
+                </div>
+                <div class="text-left ml-1">
+                    <div class="loader"></div> <!-- Loading spinner -->
+                </div>
+            </div>
+        `;
+        chatArea.appendChild(assistantPlaceholderDiv);
+        chatArea.scrollTop = chatArea.scrollHeight;
+
+        // Clear input field
+        userInput.value = '';
+
+        // Send the message to the backend
         fetch('/api/send_message', {
             method: 'POST',
             headers: {
@@ -145,8 +179,22 @@ function sendMessage() {
             .then((data) => {
                 if (data.error) {
                     console.error(data.error);
+                    // mark assistant placeholder as error
+                    assistantPlaceholderDiv.innerHTML = `
+                        <div class="inline-block max-w-3/4 bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-300 rounded-lg p-2">
+                            <div class="flex justify-between items-center mb-2 min-w-60">
+                                <span class="font-bold">Assistant</span>
+                            </div>
+                            <p class="text-left ml-1">Failed to load assistant's response. Please try again.</p>
+                        </div>
+                    `;
                     return;
                 }
+
+                // Replace the placeholders with the actual messages
+                chatArea.removeChild(userPlaceholderDiv);
+                chatArea.removeChild(assistantPlaceholderDiv);
+
                 appendMessage(
                     message,
                     'user',
@@ -154,6 +202,7 @@ function sendMessage() {
                     true,
                     data.user_msg_id
                 );
+
                 appendMessage(
                     data.model_response,
                     'assistant',
@@ -161,10 +210,20 @@ function sendMessage() {
                     true,
                     data.model_msg_id
                 );
+            })
+            .catch((error) => {
+                console.error('Error sending message:', error);
+                // Handle error for assistant placeholder
+                assistantPlaceholderDiv.innerHTML = `
+                    <div class="inline-block max-w-3/4 bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-300 rounded-lg p-2">
+                        <div class="flex justify-between items-center mb-2 min-w-60">
+                            <span class="font-bold">Assistant</span>
+                        </div>
+                        <p class="text-left ml-1">Failed to load assistant's response. Please try again.</p>
+                    </div>
+                `;
             });
     }
-
-    userInput.value = '';
 }
 
 sendButton.addEventListener('click', sendMessage);
