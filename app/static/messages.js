@@ -1,40 +1,3 @@
-const chatArea = document.getElementById('chatArea');
-const userInput = document.getElementById('userInput');
-const sendButton = document.getElementById('sendButton');
-const sessionList = document.getElementById('sessionList');
-const darkModeToggle = document.getElementById('darkModeToggle');
-
-let currentSession = null;
-
-// Dark mode functionality (unchanged)
-function enableDarkMode() {
-    document.documentElement.classList.add('dark');
-    localStorage.setItem('darkMode', 'enabled');
-}
-
-function disableDarkMode() {
-    document.documentElement.classList.remove('dark');
-    localStorage.setItem('darkMode', 'disabled');
-}
-
-if (
-    localStorage.getItem('darkMode') === 'enabled' ||
-    (localStorage.getItem('darkMode') === null &&
-        window.matchMedia('(prefers-color-scheme: dark)').matches)
-) {
-    enableDarkMode();
-} else {
-    disableDarkMode();
-}
-
-darkModeToggle.addEventListener('click', () => {
-    if (document.documentElement.classList.contains('dark')) {
-        disableDarkMode();
-    } else {
-        enableDarkMode();
-    }
-});
-
 function loadChatHistory(sessionId) {
     fetch(`/api/get_chat_history?session_id=${sessionId}`)
         .then((response) => response.json())
@@ -52,13 +15,7 @@ function loadChatHistory(sessionId) {
         });
 }
 
-function appendMessage(
-    content,
-    sender,
-    timestamp,
-    animate = true,
-    messageIndex
-) {
+function appendMessage(content, sender, timestamp, animate, messageIndex) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `mb-4 ${
         sender === 'user' ? 'text-right' : 'text-left'
@@ -130,7 +87,16 @@ function toggleOptionsMenu(messageIndex) {
 
 function sendMessage() {
     const message = userInput.value.trim();
+
+    if (isWaitingForResponse) {
+        return; // Prevent further messages while waiting for a response
+    }
+
     if (message && currentSession) {
+        // Set the lock
+        isWaitingForResponse = true;
+        userInput.disabled = true;
+
         // Append a placeholder for the user's message
         const userPlaceholderDiv = document.createElement('div');
         userPlaceholderDiv.className = 'mb-4 text-right fade-in';
@@ -199,7 +165,7 @@ function sendMessage() {
                     message,
                     'user',
                     new Date().toISOString(),
-                    true,
+                    false,
                     data.user_msg_id
                 );
 
@@ -210,6 +176,10 @@ function sendMessage() {
                     true,
                     data.model_msg_id
                 );
+
+                // Release the lock
+                isWaitingForResponse = false;
+                userInput.disabled = false;
             })
             .catch((error) => {
                 console.error('Error sending message:', error);
@@ -222,11 +192,16 @@ function sendMessage() {
                         <p class="text-left ml-1">Failed to load assistant's response. Please try again.</p>
                     </div>
                 `;
+
+                // Release the lock
+                isWaitingForResponse = false;
+                userInput.disabled = false;
             });
     }
 }
 
 sendButton.addEventListener('click', sendMessage);
+
 userInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -304,195 +279,3 @@ function deleteMessage(messageIndex) {
             });
     }
 }
-
-function createChatSession() {
-    fetch('/api/create_chat_session', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            model: modelNameTag,
-        }),
-    })
-        .then((response) => response.json())
-        .then((data) => {
-            if (data.error) {
-                console.error(data.error);
-                return;
-            }
-            currentSession = data.id;
-            updateSessionList();
-            loadChatHistory(currentSession);
-        });
-}
-
-function updateSessionList() {
-    fetch('/api/get_all_sessions')
-        .then((response) => response.json())
-        .then((sessions) => {
-            sessionList.innerHTML = '';
-            const models = new Set(sessions.map((session) => session.model));
-
-            models.forEach((model) => {
-                const modelDiv = document.createElement('div');
-                modelDiv.className = 'mb-4';
-                modelDiv.innerHTML = `
-                    <h3 class="font-bold text-gray-900 dark:text-white flex justify-between items-center">
-                        ${model}
-                        ${
-                            model === modelNameTag
-                                ? `<button onclick="createChatSession()" class="text-blue-500 hover:text-blue-700">+</button>`
-                                : ''
-                        }
-                    </h3>
-                    <ul id="${model}-sessions" class="list-disc pl-4 text-gray-800 dark:text-gray-300"></ul>
-                `;
-                sessionList.appendChild(modelDiv);
-
-                const modelSessions = sessions.filter(
-                    (session) => session.model === model
-                );
-                const sessionUl = document.getElementById(`${model}-sessions`);
-
-                modelSessions.forEach((session) => {
-                    const li = document.createElement('li');
-                    li.innerHTML = `
-                        <div class="flex justify-between items-center">
-                            <a href="#" onclick="selectSession('${
-                                session.id
-                            }', '${
-                        session.model
-                    }')" class="hover:text-blue-500 ${
-                        session.model !== modelNameTag ? 'opacity-50' : ''
-                    }">
-                                <span class="session-name" data-session-id="${
-                                    session.id
-                                }">${
-                        session.name ||
-                        new Date(session.created_at).toLocaleString()
-                    }</span>
-                            </a>
-                            <div>
-                                <button onclick="editSessionName('${
-                                    session.id
-                                }')" class="text-sm text-blue-500 hover:text-blue-700 mr-2">Edit</button>
-                                <button onclick="deleteSession('${
-                                    session.id
-                                }')" class="text-sm text-red-500 hover:text-red-700">Delete</button>
-                            </div>
-                        </div>
-                    `;
-                    sessionUl.appendChild(li);
-                });
-            });
-        });
-}
-
-function selectSession(sessionId, model) {
-    currentSession = sessionId;
-    loadChatHistory(sessionId);
-    updateSendButtonState(model);
-}
-
-function updateSendButtonState(model) {
-    if (model === modelNameTag) {
-        sendButton.disabled = false;
-        sendButton.classList.remove('opacity-50', 'cursor-not-allowed');
-    } else {
-        sendButton.disabled = true;
-        sendButton.classList.add('opacity-50', 'cursor-not-allowed');
-    }
-}
-
-function editSessionName(sessionId) {
-    const nameSpan = document.querySelector(
-        `.session-name[data-session-id="${sessionId}"]`
-    );
-    const currentName = nameSpan.textContent;
-
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.value = currentName;
-    input.className = 'border rounded px-2 py-1 text-sm';
-
-    input.onblur = () => saveSessionName(sessionId, input.value);
-    input.onkeydown = (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            input.blur();
-        }
-    };
-
-    nameSpan.innerHTML = '';
-    nameSpan.appendChild(input);
-    input.focus();
-}
-
-function saveSessionName(sessionId, newName) {
-    fetch('/api/edit_session_name', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            session_id: sessionId,
-            new_name: newName,
-        }),
-    })
-        .then((response) => response.json())
-        .then((data) => {
-            if (data.error) {
-                console.error(data.error);
-                return;
-            }
-            updateSessionList();
-        });
-}
-
-function deleteSession(sessionId) {
-    if (
-        confirm(
-            'Are you sure you want to delete this session and all its messages?'
-        )
-    ) {
-        fetch('/api/delete_session', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                session_id: sessionId,
-            }),
-        })
-            .then((response) => response.json())
-            .then((data) => {
-                if (data.error) {
-                    console.error(data.error);
-                    return;
-                }
-                if (currentSession === sessionId) {
-                    currentSession = null;
-                    chatArea.innerHTML = '';
-                }
-                updateSessionList();
-            });
-    }
-}
-
-function initializeApp() {
-    fetch(`/api/get_latest_session?model=${modelNameTag}`)
-        .then((response) => response.json())
-        .then((data) => {
-            if (data.error) {
-                console.error(data.error);
-                return;
-            }
-            currentSession = data.id;
-            updateSessionList();
-            loadChatHistory(currentSession);
-            updateSendButtonState(modelNameTag);
-        });
-}
-
-initializeApp();
